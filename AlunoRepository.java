@@ -1,132 +1,75 @@
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.Statement;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
 public class AlunoRepository {
 
+    // Método para salvar um aluno
     public void salvar(Aluno aluno) {
-        try {
-            Connection conn = Conexao.getConnection();
-            Statement stmt = conn.createStatement();
+        if (aluno == null || aluno.getNome() == null || aluno.getEmail() == null) {
+            throw new IllegalArgumentException("Dados do aluno inválidos.");
+        }
 
-            String sql = "INSERT INTO aluno (nome, email) VALUES ('"
-                    + aluno.getNome() + "', '" + aluno.getEmail() + "')";
+        String sql = "INSERT INTO aluno (nome, email, idade) VALUES (?, ?, ?)";
 
-            stmt.executeUpdate(sql);
+        try (Connection conn = Conexao.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
 
-            stmt.close();
-            conn.close();
+            stmt.setString(1, aluno.getNome());
+            stmt.setString(2, aluno.getEmail());
+            stmt.setInt(3, aluno.getIdade());
 
+            stmt.executeUpdate();
             System.out.println("Aluno salvo com sucesso!");
 
-        } catch (Exception e) {
+        } catch (SQLException e) {
+            System.err.println("Erro ao salvar aluno: " + e.getMessage());
             e.printStackTrace();
         }
     }
 
+    // Método para listar todos os alunos
     public List<Aluno> listarTodos() {
         List<Aluno> lista = new ArrayList<>();
+        String sql = "SELECT id, nome, email, idade FROM aluno";
 
-        try {
-            Connection conn = Conexao.getConnection();
-            Statement stmt = conn.createStatement();
-
-            String sql = "SELECT id, nome, email FROM aluno";
-            ResultSet rs = stmt.executeQuery(sql);
+        try (Connection conn = Conexao.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
 
             while (rs.next()) {
                 int id = rs.getInt("id");
                 String nome = rs.getString("nome");
                 String email = rs.getString("email");
+                int idade = rs.getInt("idade");
 
-                lista.add(new Aluno(id, nome, email));
+                lista.add(new Aluno(id, nome, email, idade));
             }
 
-            rs.close();
-            stmt.close();
-            conn.close();
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        return lista;
-    }
-}
-// ... imports
-
-public class AlunoRepository {
-
-    public void salvar(Aluno aluno) {
-        try {
-            Connection conn = Conexao.getConnection();
-            Statement stmt = conn.createStatement();
-
-            // SQL ajustado para incluir 'idade'
-            String sql = "INSERT INTO aluno (nome, email, idade) VALUES ('"
-                    + aluno.getNome() + "', '" + aluno.getEmail() + "', " + aluno.getIdade() + ")";
-
-            stmt.executeUpdate(sql);
-
-            stmt.close();
-            conn.close();
-
-            System.out.println("Aluno salvo com sucesso!");
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    public List<Aluno> listarTodos() {
-        List<Aluno> lista = new ArrayList<>();
-
-        try {
-            Connection conn = Conexao.getConnection();
-            Statement stmt = conn.createStatement();
-
-            // SQL ajustado para selecionar 'idade'
-            String sql = "SELECT id, nome, email, idade FROM aluno";
-            ResultSet rs = stmt.executeQuery(sql);
-
-            while (rs.next()) {
-                int id = rs.getInt("id");
-                String nome = rs.getString("nome");
-                String email = rs.getString("email");
-                int idade = rs.getInt("idade"); // Resgata a idade
-
-                // Construtor ajustado
-                lista.add(new Aluno(id, nome, email, idade)); 
-            }
-
-            rs.close();
-            stmt.close();
-            conn.close();
-
-        } catch (Exception e) {
+        } catch (SQLException e) {
+            System.err.println("Erro ao listar alunos: " + e.getMessage());
             e.printStackTrace();
         }
 
         return lista;
     }
 
-    // ... (Novos métodos a seguir)
-}
-// ... no final da classe AlunoRepository
-
+    // Método para deletar um aluno por ID
     public void deletarPorId(int id) {
-        try {
-            Connection conn = Conexao.getConnection();
-            Statement stmt = conn.createStatement();
+        if (id <= 0) {
+            throw new IllegalArgumentException("ID inválido.");
+        }
 
-            String sql = "DELETE FROM aluno WHERE id = " + id;
+        String sql = "DELETE FROM aluno WHERE id = ?";
 
-            int linhasAfetadas = stmt.executeUpdate(sql);
+        try (Connection conn = Conexao.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
 
-            stmt.close();
-            conn.close();
+            stmt.setInt(1, id);
+            int linhasAfetadas = stmt.executeUpdate();
 
             if (linhasAfetadas > 0) {
                 System.out.println("Aluno com ID " + id + " deletado com sucesso!");
@@ -134,39 +77,40 @@ public class AlunoRepository {
                 System.out.println("Nenhum aluno encontrado com ID " + id + ".");
             }
 
-        } catch (Exception e) {
+        } catch (SQLException e) {
+            System.err.println("Erro ao deletar aluno: " + e.getMessage());
             e.printStackTrace();
         }
     }
-// ... no final da classe AlunoRepository
 
+    // Método para buscar um aluno por ID
     public Aluno buscarPorId(int id) {
+        if (id <= 0) {
+            throw new IllegalArgumentException("ID inválido.");
+        }
+
         Aluno aluno = null;
+        String sql = "SELECT id, nome, email, idade FROM aluno WHERE id = ?";
 
-        try {
-            Connection conn = Conexao.getConnection();
-            Statement stmt = conn.createStatement();
+        try (Connection conn = Conexao.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
 
-            // SQL ajustado para selecionar 'idade'
-            String sql = "SELECT id, nome, email, idade FROM aluno WHERE id = " + id;
-            ResultSet rs = stmt.executeQuery(sql);
+            stmt.setInt(1, id);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    String nome = rs.getString("nome");
+                    String email = rs.getString("email");
+                    int idade = rs.getInt("idade");
 
-            if (rs.next()) { // Move para a primeira linha (e única)
-                String nome = rs.getString("nome");
-                String email = rs.getString("email");
-                int idade = rs.getInt("idade");
-
-                // Instancia e retorna o Aluno encontrado
-                aluno = new Aluno(id, nome, email, idade); 
+                    aluno = new Aluno(id, nome, email, idade);
+                }
             }
 
-            rs.close();
-            stmt.close();
-            conn.close();
-
-        } catch (Exception e) {
+        } catch (SQLException e) {
+            System.err.println("Erro ao buscar aluno: " + e.getMessage());
             e.printStackTrace();
         }
 
         return aluno;
     }
+}
